@@ -282,8 +282,6 @@ const authGate = document.querySelector("#authGate");
 const authForm = document.querySelector("#authForm");
 const authUsername = document.querySelector("#authUsername");
 const authPassword = document.querySelector("#authPassword");
-const authConfirm = document.querySelector("#authConfirm");
-const confirmField = document.querySelector("#confirmField");
 const authError = document.querySelector("#authError");
 const authSubmit = document.querySelector("#authSubmit");
 const authSwitch = document.querySelector("#authSwitch");
@@ -337,8 +335,6 @@ function restoreSession() {
 function showAuth() {
   state.user = "";
   authMode = "login";
-  confirmField.hidden = true;
-  authConfirm.required = false;
   authPassword.autocomplete = "current-password";
   authSubmit.textContent = "登录";
   authSwitch.textContent = "没有账号？创建账号";
@@ -346,7 +342,6 @@ function showAuth() {
   authGate.hidden = false;
   app.classList.add("auth-hidden");
   authPassword.value = "";
-  authConfirm.value = "";
   setTimeout(() => authUsername.focus(), 0);
 }
 
@@ -366,8 +361,6 @@ function enterApp(username) {
 function toggleAuthMode() {
   authMode = authMode === "login" ? "register" : "login";
   const registering = authMode === "register";
-  confirmField.hidden = !registering;
-  authConfirm.required = registering;
   authPassword.autocomplete = registering ? "new-password" : "current-password";
   authSubmit.textContent = registering ? "创建账号" : "登录";
   authSwitch.textContent = registering ? "已有账号？返回登录" : "没有账号？创建账号";
@@ -394,7 +387,6 @@ async function handleAuthSubmit(event) {
   try {
     if (authMode === "register") {
       if (accounts[username]) throw new Error("这个账号已经存在");
-      if (password !== authConfirm.value) throw new Error("两次输入的密码不一致");
       const salt = createSalt();
       accounts[username] = { salt, hash: await hashPassword(password, salt) };
       localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
@@ -450,7 +442,7 @@ function loadUserData() {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js?v=9").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js?v=10").catch(() => {
       // The app remains usable online when service-worker registration is unavailable.
     });
   });

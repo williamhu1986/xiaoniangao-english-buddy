@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+SC:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <section class="auth-gate" id="authGate">
@@ -33,10 +33,6 @@
       <label>
         <span>密码</span>
         <input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required>
-      </label>
-      <label class="confirm-field" id="confirmField" hidden>
-        <span>确认密码</span>
-        <input id="authConfirm" name="confirm" type="password" autocomplete="new-password" minlength="6" placeholder="再次输入密码">
       </label>
       <p class="auth-error" id="authError" role="alert"></p>
       <button class="auth-submit" id="authSubmit" type="submit">登录</button>
@@ -269,6 +265,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
