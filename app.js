@@ -266,7 +266,9 @@ const state = {
 
 const lessonDialog = document.querySelector("#lessonDialog");
 const guideDialog = document.querySelector("#guideDialog");
+const courseDialog = document.querySelector("#courseDialog");
 const accountDialog = document.querySelector("#accountDialog");
+const coursePreview = document.querySelector("#coursePreview");
 const exercise = document.querySelector("#exercise");
 const answerBar = document.querySelector("#answerBar");
 const answerMessage = document.querySelector("#answerMessage");
@@ -301,6 +303,10 @@ function init() {
   guideDialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     guideDialog.close();
+  });
+  courseDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    courseDialog.close();
   });
   accountDialog.addEventListener("cancel", (event) => {
     event.preventDefault();
@@ -345,6 +351,7 @@ function enterApp(username) {
   document.querySelector("#accountName").textContent = username;
   authGate.hidden = true;
   app.classList.remove("auth-hidden");
+  renderCourse();
   updateDashboard();
   updatePath();
   createIcons();
@@ -457,6 +464,12 @@ function handleClick(event) {
     return;
   }
 
+  const unitPreview = event.target.closest("[data-unit-preview]");
+  if (unitPreview) {
+    openUnitPreview(Number(unitPreview.dataset.unitPreview));
+    return;
+  }
+
   const option = event.target.closest("[data-option]");
   if (option && !state.answered) {
     selectOption(option);
@@ -474,6 +487,8 @@ function handleClick(event) {
   const actions = {
     "unit-guide": () => guideDialog.showModal(),
     "close-guide": () => guideDialog.close(),
+    "close-course-preview": () => courseDialog.close(),
+    "course-primary": () => handleCoursePrimary(Number(action.dataset.unit), action.dataset.status),
     "start-current": () => {
       guideDialog.close();
       openPathLesson("story");
@@ -509,11 +524,11 @@ function navigate(page) {
 function renderCourse() {
   const list = document.querySelector("#courseList");
   list.innerHTML = curriculum.map((item) => {
-    const status = item.unit === 1 ? "done" : item.unit === 2 ? "current" : "locked";
-    const icon = status === "done" ? "circle-check-big" : status === "current" ? "play" : "lock";
-    const label = status === "done" ? "已完成" : status === "current" ? "正在学习" : "未解锁";
+    const status = getUnitStatus(item.unit);
+    const icon = status === "done" ? "circle-check-big" : status === "current" ? "play" : "eye";
+    const label = status === "done" ? "已完成 · 可回看" : status === "current" ? "正在学习" : "可提前预览";
     return `
-      <article class="course-unit ${status}">
+      <button class="course-unit ${status}" type="button" data-unit-preview="${item.unit}" aria-label="预览 Unit ${item.unit}：${item.question}">
         <span class="course-number">${item.unit}</span>
         <div class="course-copy">
           <small>UNIT ${item.unit} · ${label}</small>
@@ -521,8 +536,64 @@ function renderCourse() {
           <span>${item.words}</span>
         </div>
         <i class="course-state" data-lucide="${icon}"></i>
-      </article>`;
+      </button>`;
   }).join("");
+  createIcons();
+}
+
+function getUnitStatus(unit) {
+  if (unit === 1) return "done";
+  if (unit === 2) return state.unitProgress >= 5 ? "done" : "current";
+  return "preview";
+}
+
+function openUnitPreview(unitNumber) {
+  const item = curriculum.find((unit) => unit.unit === unitNumber);
+  if (!item) return;
+  const status = getUnitStatus(unitNumber);
+  const isLocked = status === "preview";
+  const isUnitTwo = unitNumber === 2;
+  const statusCopy = status === "done"
+    ? "本单元已完成，可以随时回看教材内容。"
+    : status === "current"
+      ? `正在学习第 ${Math.min(state.unitProgress + 1, 5)} 关，共 5 关。`
+      : "可提前熟悉主题和词汇，完成前序单元后开放练习。";
+  const primaryLabel = isLocked
+    ? "未解锁，暂不能做题"
+    : isUnitTwo
+      ? status === "done" ? "查看学习记录" : "进入学习路径"
+      : "完成回看";
+
+  coursePreview.innerHTML = `
+    <button class="close-button" type="button" data-action="close-course-preview" aria-label="关闭"><i data-lucide="x"></i></button>
+    <div class="course-preview-heading">
+      <span class="course-number">${item.unit}</span>
+      <div>
+        <span class="eyebrow">UNIT ${item.unit} · ${status === "done" ? "已完成" : status === "current" ? "正在学习" : "提前预览"}</span>
+        <h2>${item.question}</h2>
+      </div>
+    </div>
+    <p class="course-preview-status ${status}"><i data-lucide="${status === "done" ? "circle-check-big" : status === "current" ? "map-pin" : "eye"}"></i>${statusCopy}</p>
+    <div class="course-preview-row">
+      <span>重点词汇</span>
+      <strong>${item.words}</strong>
+      <button class="preview-audio-button" type="button" data-action="play-sound" data-audio="${escapeAttr(item.words.replaceAll(" · ", ", "))}" aria-label="朗读重点词汇"><i data-lucide="volume-2"></i></button>
+    </div>
+    <div class="course-preview-row"><span>故事</span><strong>${item.story}</strong></div>
+    <div class="course-preview-row"><span>字母</span><strong>${item.letters}</strong></div>
+    <button class="course-preview-primary ${isLocked ? "locked" : ""}" type="button" data-action="course-primary" data-unit="${item.unit}" data-status="${status}" ${isLocked ? "disabled" : ""}>
+      <i data-lucide="${isLocked ? "lock" : isUnitTwo ? "arrow-right" : "check"}"></i>${primaryLabel}
+    </button>`;
+  courseDialog.showModal();
+  createIcons();
+}
+
+function handleCoursePrimary(unit, status) {
+  courseDialog.close();
+  if (unit === 2) {
+    navigate("learn");
+    showToast(status === "done" ? "点击已完成关卡即可查看答题记录" : "继续完成当前学习关卡");
+  }
 }
 
 function updateDashboard() {
@@ -846,6 +917,7 @@ function renderResult() {
 
 function finishLesson() {
   closeLesson();
+  renderCourse();
   updateDashboard();
   updatePath();
   showToast("学习记录已保存，获得新星星");
