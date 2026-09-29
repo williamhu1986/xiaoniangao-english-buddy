@@ -252,6 +252,10 @@ const state = {
   selected: null,
   ordered: [],
   recorded: false,
+  speechTranscript: "",
+  speechScore: null,
+  speechConfirmed: false,
+  speechListening: false,
   answered: false,
   finished: false,
   reviewMode: false,
@@ -288,6 +292,7 @@ let toastTimer;
 let authMode = "login";
 let preferredVoice = null;
 let audioContext = null;
+let activeRecognition = null;
 
 function init() {
   renderCourse();
@@ -499,6 +504,8 @@ function handleClick(event) {
     "logout": logout,
     "play-sound": () => speak(action.dataset.audio),
     "record": () => recordAnswer(action),
+    "retry-speech": retrySpeech,
+    "confirm-speech": confirmSpeechScore,
     "check-answer": checkOrContinue,
     "daily-practice": startDailyPractice,
     "quick-listen": startListeningPractice,
@@ -678,9 +685,14 @@ function startSpeakingPractice() {
 }
 
 function resetQuestionState() {
+  stopRecognition();
   state.selected = null;
   state.ordered = [];
   state.recorded = false;
+  state.speechTranscript = "";
+  state.speechScore = null;
+  state.speechConfirmed = false;
+  state.speechListening = false;
   state.answered = false;
   state.finished = false;
   answerBar.className = "answer-bar";
@@ -710,7 +722,8 @@ function renderQuestion() {
       <div class="record-zone">
         <p>${question.hint}</p>
         <button class="record-button" type="button" data-action="record" aria-label="开始录音"><i data-lucide="mic-2"></i></button>
-        <p>按一下麦克风，再大声读出来</p>
+        <p class="record-instruction" id="recordInstruction">点击麦克风，听到提示后大声读出来</p>
+        <div class="speech-result" id="speechResult" aria-live="polite"></div>
       </div>`;
   } else if (question.type === "order") {
     body = `
@@ -781,18 +794,177 @@ function toggleWord(index) {
 }
 
 function recordAnswer(button) {
-  if (state.recorded) return;
-  state.recorded = true;
-  button.classList.add("recording");
-  button.innerHTML = '<i data-lucide="audio-lines"></i>';
-  createIcons();
-  speak(state.questions[state.index].phrase);
-  setTimeout(() => {
-    button.classList.remove("recording");
-    button.innerHTML = '<i data-lucide="check"></i>';
-    checkButton.disabled = false;
+  if (state.speechConfirmed || state.speechListening) return;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    renderSpeechError("当前浏览器不支持语音评分，请使用最新版 Safari、Chrome 或 Edge。");
+    return;
+  }
+
+  stopRecognition();
+  speechSynthesis.cancel();
+  const questionIndex = state.index;
+  const recognition = new Recognition();
+  activeRecognition = recognition;
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3;
+  recognition.continuous = false;
+
+  recognition.onstart = () => {
+    if (questionIndex !== state.index) return;
+    state.speechListening = true;
+    button.classList.add("recording");
+    button.innerHTML = '<i data-lucide="audio-lines"></i>';
+    document.querySelector("#recordInstruction").textContent = "正在聆听，请朗读上面的英文";
+    document.querySelector("#speechResult").innerHTML = '<div class="speech-listening"><i></i><i></i><i></i><span>录音中...</span></div>';
     createIcons();
-  }, 1300);
+  };
+
+  recognition.onresult = (event) => {
+    if (questionIndex !== state.index) return;
+    const alternatives = Array.from(event.results[0]);
+    const target = state.questions[state.index].phrase;
+    const best = alternatives
+      .map((result) => ({
+        transcript: result.transcript.trim(),
+        confidence: Number.isFinite(result.confidence) ? result.confidence : .8,
+      }))
+      .map((result) => ({ ...result, score: scorePronunciation(target, result.transcript, result.confidence) }))
+      .sort((a, b) => b.score - a.score)[0];
+    state.recorded = true;
+    state.speechTranscript = best.transcript;
+    state.speechScore = best.score;
+    renderSpeechScore();
+  };
+
+  recognition.onerror = (event) => {
+    if (questionIndex !== state.index || event.error === "aborted") return;
+    const messages = {
+      "not-allowed": "需要允许麦克风权限，才能进行口语评分。",
+      "audio-capture": "没有检测到可用的麦克风。",
+      "no-speech": "没有听到声音，请靠近麦克风再读一次。",
+      network: "语音识别服务暂时不可用，请稍后重试。",
+    };
+    renderSpeechError(messages[event.error] || "没有识别成功，请再读一次。");
+  };
+
+  recognition.onend = () => {
+    if (questionIndex !== state.index) return;
+    state.speechListening = false;
+    activeRecognition = null;
+    button.classList.remove("recording");
+    button.innerHTML = '<i data-lucide="mic-2"></i>';
+    if (state.speechScore === null && !document.querySelector(".speech-error")) {
+      renderSpeechError("没有听到完整读音，请再读一次。");
+    }
+    createIcons();
+  };
+
+  try {
+    recognition.start();
+  } catch {
+    renderSpeechError("麦克风正在使用中，请稍后再试。");
+  }
+}
+
+function scorePronunciation(target, transcript, confidence) {
+  const targetText = normalize(target);
+  const spokenText = normalize(transcript);
+  const targetWords = targetText.split(" ").filter(Boolean);
+  const spokenWords = spokenText.split(" ").filter(Boolean);
+  const wordAccuracy = 1 - editDistance(targetWords, spokenWords) / Math.max(targetWords.length, spokenWords.length, 1);
+  const targetChars = [...targetText.replace(/\s/g, "")];
+  const spokenChars = [...spokenText.replace(/\s/g, "")];
+  const charAccuracy = 1 - editDistance(targetChars, spokenChars) / Math.max(targetChars.length, spokenChars.length, 1);
+  const recognitionConfidence = Math.max(0, Math.min(1, confidence || .8));
+  return Math.max(0, Math.min(100, Math.round((wordAccuracy * .65 + charAccuracy * .25 + recognitionConfidence * .1) * 100)));
+}
+
+function editDistance(expected, actual) {
+  const rows = expected.length + 1;
+  const columns = actual.length + 1;
+  const matrix = Array.from({ length: rows }, () => Array(columns).fill(0));
+  for (let row = 0; row < rows; row += 1) matrix[row][0] = row;
+  for (let column = 0; column < columns; column += 1) matrix[0][column] = column;
+  for (let row = 1; row < rows; row += 1) {
+    for (let column = 1; column < columns; column += 1) {
+      const substitution = matrix[row - 1][column - 1] + (expected[row - 1] === actual[column - 1] ? 0 : 1);
+      matrix[row][column] = Math.min(matrix[row - 1][column] + 1, matrix[row][column - 1] + 1, substitution);
+    }
+  }
+  return matrix[rows - 1][columns - 1];
+}
+
+function renderSpeechScore() {
+  const result = document.querySelector("#speechResult");
+  const instruction = document.querySelector("#recordInstruction");
+  if (!result || !instruction) return;
+  const scoreClass = state.speechScore >= 85 ? "excellent" : state.speechScore >= 60 ? "good" : "retry";
+  const scoreCopy = state.speechScore >= 85 ? "读得很棒" : state.speechScore >= 60 ? "发音不错" : "再练一次会更好";
+  instruction.textContent = "这是本次识别结果，你可以重读或确认分数";
+  result.innerHTML = `
+    <div class="speech-score-card ${scoreClass}">
+      <div class="speech-score-ring"><strong>${state.speechScore}</strong><span>分</span></div>
+      <div class="speech-score-copy">
+        <strong>${scoreCopy}</strong>
+        <span>识别为：${escapeHtml(state.speechTranscript)}</span>
+      </div>
+    </div>
+    <div class="speech-actions">
+      <button type="button" class="speech-retry" data-action="retry-speech"><i data-lucide="rotate-ccw"></i>再读一次</button>
+      <button type="button" class="speech-confirm" data-action="confirm-speech"><i data-lucide="check"></i>确认此分数</button>
+    </div>`;
+  createIcons();
+}
+
+function renderSpeechError(message) {
+  state.speechListening = false;
+  const result = document.querySelector("#speechResult");
+  const instruction = document.querySelector("#recordInstruction");
+  const button = document.querySelector(".record-button");
+  if (instruction) instruction.textContent = "点击麦克风重新尝试";
+  if (result) result.innerHTML = `<p class="speech-error"><i data-lucide="circle-alert"></i>${message}</p>`;
+  if (button) {
+    button.classList.remove("recording");
+    button.innerHTML = '<i data-lucide="mic-2"></i>';
+  }
+  createIcons();
+}
+
+function retrySpeech() {
+  if (state.speechConfirmed) return;
+  state.recorded = false;
+  state.speechTranscript = "";
+  state.speechScore = null;
+  checkButton.disabled = true;
+  const result = document.querySelector("#speechResult");
+  if (result) result.innerHTML = "";
+  const instruction = document.querySelector("#recordInstruction");
+  if (instruction) instruction.textContent = "点击麦克风，听到提示后大声读出来";
+  document.querySelector(".record-button")?.focus();
+}
+
+function confirmSpeechScore() {
+  if (state.speechScore === null || state.speechConfirmed) return;
+  state.speechConfirmed = true;
+  document.querySelector(".record-button").disabled = true;
+  document.querySelector(".speech-retry").disabled = true;
+  const confirmButton = document.querySelector(".speech-confirm");
+  confirmButton.disabled = true;
+  confirmButton.innerHTML = '<i data-lucide="lock"></i>分数已确认';
+  document.querySelector("#recordInstruction").textContent = "分数已锁定，提交后不能更改";
+  checkButton.disabled = false;
+  checkButton.textContent = `提交 ${state.speechScore} 分`;
+  createIcons();
+}
+
+function stopRecognition() {
+  if (!activeRecognition) return;
+  activeRecognition.onend = null;
+  activeRecognition.abort();
+  activeRecognition = null;
+  state.speechListening = false;
 }
 
 function checkOrContinue() {
@@ -822,9 +994,10 @@ function checkOrContinue() {
     options[question.answer]?.classList.add("correct");
     if (!correct) options[state.selected]?.classList.add("wrong");
   } else if (question.type === "speak") {
-    correct = state.recorded;
-    correctText = "发音清楚，继续保持";
-    responseText = question.phrase;
+    if (!state.speechConfirmed) return;
+    correct = state.speechScore >= 60;
+    correctText = `口语得分：${state.speechScore} 分`;
+    responseText = `${state.speechTranscript}（${state.speechScore} 分）`;
   } else if (question.type === "order") {
     const response = state.ordered.map((index) => question.words[index]).join(" ");
     correct = normalize(response) === normalize(question.answerText);
@@ -969,6 +1142,7 @@ function logout() {
 }
 
 function closeLesson() {
+  stopRecognition();
   if (lessonDialog.open) lessonDialog.close();
   speechSynthesis.cancel();
   document.body.style.overflow = "";

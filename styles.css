@@ -582,11 +582,80 @@ dialog::backdrop { background: rgba(36,36,36,.45); }
 .word-chip.used { opacity: .25; pointer-events: none; }
 .sentence-line { min-height: 68px; margin-bottom: 24px; padding: 10px; border-top: 2px solid var(--line); border-bottom: 2px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .record-zone { text-align: center; }
+.record-zone > p:first-child { margin: 18px 0; color: var(--muted); font-weight: 700; }
 .record-word { margin: 35px 0 25px; font: 700 46px "Fredoka", sans-serif; }
 .record-button { width: 88px; height: 80px; border: 0; border-radius: 50%; color: var(--white); background: var(--purple); box-shadow: 0 8px 0 var(--purple-dark); cursor: pointer; }
 .record-button.recording { animation: pulse 1s infinite; }
+.record-button:disabled { opacity: .5; cursor: default; box-shadow: 0 5px 0 #999; background: #bbb; }
 .record-button svg { width: 35px; height: 35px; }
 @keyframes pulse { 50% { transform: scale(1.07); } }
+.record-instruction { min-height: 20px; margin: 19px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.speech-result { min-height: 0; margin-top: 18px; }
+.speech-listening {
+  min-height: 56px;
+  padding: 13px;
+  border: 2px solid #e9d8ff;
+  border-radius: 12px;
+  background: #fbf6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.speech-listening i { width: 6px; height: 18px; border-radius: 4px; background: var(--purple); animation: sound-wave .8s ease-in-out infinite alternate; }
+.speech-listening i:nth-child(2) { height: 30px; animation-delay: .15s; }
+.speech-listening i:nth-child(3) { height: 23px; animation-delay: .3s; }
+.speech-listening span { margin-left: 8px; color: var(--purple-dark); font-size: 12px; font-weight: 800; }
+@keyframes sound-wave { to { transform: scaleY(.45); } }
+.speech-score-card {
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-align: left;
+}
+.speech-score-ring {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  border-radius: 50%;
+  color: var(--white);
+  background: var(--green);
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.speech-score-ring strong { font: 700 25px/1 "Fredoka", sans-serif; }
+.speech-score-ring span { margin-top: 2px; font-size: 10px; font-weight: 800; }
+.speech-score-card.good .speech-score-ring { background: var(--blue); }
+.speech-score-card.retry .speech-score-ring { background: var(--orange); }
+.speech-score-copy { min-width: 0; display: grid; gap: 4px; }
+.speech-score-copy strong { font-size: 17px; }
+.speech-score-copy span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.speech-actions { margin-top: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.speech-actions button {
+  min-height: 45px;
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
+  border-radius: 11px;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.speech-actions button svg { width: 17px; height: 17px; }
+.speech-actions .speech-retry { color: var(--blue-dark); }
+.speech-actions .speech-confirm { color: var(--green-dark); border-color: #a5ed6e; background: #f2ffe8; }
+.speech-actions button:disabled { color: #999; border-color: var(--line); background: var(--soft); cursor: default; }
+.speech-error { margin: 0; padding: 12px 14px; border-radius: 10px; color: #b82c2c; background: #fff0f0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.speech-error svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .write-input { width: 100%; height: 64px; padding: 0 18px; border: 2px solid var(--line); border-bottom-width: 5px; border-radius: 14px; font: 600 21px "Fredoka", sans-serif; }
 .write-input:focus { outline: 0; border-color: var(--blue); background: #f6fcff; }
 
@@ -795,6 +864,7 @@ dialog::backdrop { background: rgba(36,36,36,.45); }
   .scene-emoji { font-size: 55px; }
   .speech-bubble { font-size: 17px; padding: 13px; }
   .record-word { font-size: 32px; }
+  .speech-actions { grid-template-columns: 1fr; }
   .answer-bar { min-height: 105px; padding: 15px; flex-direction: column; align-items: stretch; gap: 10px; }
   .answer-message { margin: 0; }
   .check-button { width: 100%; }
