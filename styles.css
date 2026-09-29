@@ -86,6 +86,7 @@ button:focus-visible { outline: 3px solid rgba(28,176,246,.35); outline-offset: 
   gap: 15px;
 }
 .auth-form label { display: grid; gap: 7px; }
+.auth-form label[hidden] { display: none; }
 .auth-form label > span { font-size: 12px; font-weight: 800; }
 .auth-form input {
   width: 100%;

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+SC:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
   <section class="auth-gate" id="authGate">
@@ -26,20 +26,24 @@
       <p>登录后继续今天的英语闯关</p>
     </div>
     <form class="auth-form" id="authForm">
-      <label>
-        <span>账号</span>
-        <input id="authUsername" name="username" autocomplete="username" maxlength="20" placeholder="请输入账号" required>
+      <label id="authNicknameLabel" hidden>
+        <span>孩子昵称</span>
+        <input id="authNickname" name="nickname" autocomplete="nickname" maxlength="30" placeholder="例如：小年糕">
       </label>
-      <label>
+      <label id="authEmailLabel">
+        <span>监护人邮箱</span>
+        <input id="authUsername" name="email" type="email" inputmode="email" autocomplete="email" maxlength="120" placeholder="用于多设备登录和找回密码" required>
+      </label>
+      <label id="authPasswordLabel">
         <span>密码</span>
         <input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required>
       </label>
       <p class="auth-error" id="authError" role="alert"></p>
       <button class="auth-submit" id="authSubmit" type="submit">登录</button>
       <button class="auth-switch" id="authSwitch" type="button">没有账号？创建账号</button>
-      <button class="auth-reset" id="authReset" type="button">忘记密码？重置本机密码</button>
+      <button class="auth-reset" id="authReset" type="button">忘记密码？发送重置邮件</button>
     </form>
-    <small class="local-account-note"><i data-lucide="shield-check"></i>账号仅保存在当前设备</small>
+    <small class="local-account-note"><i data-lucide="cloud-check"></i>账号与学习进度安全同步到云端</small>
   </section>
 
   <div class="app auth-hidden" id="app">
@@ -259,13 +263,14 @@
       <span class="account-avatar"><i data-lucide="user-round"></i></span>
       <span class="eyebrow">当前账号</span>
       <h2 id="accountName">小年糕</h2>
-      <p>学习记录保存在这台设备中</p>
+      <p id="accountEmail">学习记录已同步到云端</p>
       <button class="logout-button" type="button" data-action="logout"><i data-lucide="log-out"></i>退出登录</button>
     </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="app.js?v=11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

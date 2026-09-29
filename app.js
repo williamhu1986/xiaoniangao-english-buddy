@@ -1,3 +1,9 @@
+const SUPABASE_URL = "https://hymajqjejutmhtlubhwi.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_RuC6WprRt3ajK9Fp19rl1g_X1XF5jNF";
+const APP_URL = "https://williamhu1986.github.io/xiaoniangao-english-buddy/";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const legacySessionUser = sessionStorage.getItem("buddy-session-v1");
+
 const curriculum = [
   {
     unit: 1,
@@ -281,7 +287,11 @@ const lessonProgress = document.querySelector("#lessonProgress");
 const authGate = document.querySelector("#authGate");
 const authForm = document.querySelector("#authForm");
 const authUsername = document.querySelector("#authUsername");
+const authNickname = document.querySelector("#authNickname");
+const authNicknameLabel = document.querySelector("#authNicknameLabel");
+const authEmailLabel = document.querySelector("#authEmailLabel");
 const authPassword = document.querySelector("#authPassword");
+const authPasswordLabel = document.querySelector("#authPasswordLabel");
 const authError = document.querySelector("#authError");
 const authSubmit = document.querySelector("#authSubmit");
 const authSwitch = document.querySelector("#authSwitch");
@@ -293,6 +303,7 @@ let preferredVoice = null;
 let audioContext = null;
 let activeRecognition = null;
 let microphonePermissionGranted = false;
+let cloudSyncTimer = null;
 
 function init() {
   renderCourse();
@@ -320,23 +331,33 @@ function init() {
   });
   prepareVoices();
   if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", prepareVoices);
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") showUpdatePasswordMode();
+    if (event === "SIGNED_OUT" && state.user) showAuth();
+  });
+  window.addEventListener("online", pushCloudProgress);
   restoreSession();
   createIcons();
 }
 
-function restoreSession() {
-  const username = sessionStorage.getItem("buddy-session-v1");
-  const account = getAccounts()[username];
-  if (username && account) {
-    enterApp(username);
-    return;
+async function restoreSession() {
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (!error && data.session?.user) {
+    await enterApp(data.session.user);
+  } else {
+    showAuth();
   }
-  showAuth();
 }
 
-function showAuth() {
+function showAuth(mode = "login") {
   state.user = "";
-  authMode = "login";
+  authMode = mode;
+  authEmailLabel.hidden = false;
+  authPasswordLabel.hidden = false;
+  authNicknameLabel.hidden = true;
+  authNickname.required = false;
+  authUsername.required = true;
+  authPassword.required = true;
   authPassword.autocomplete = "current-password";
   authSubmit.textContent = "登录";
   authSwitch.textContent = "没有账号？创建账号";
@@ -349,22 +370,31 @@ function showAuth() {
   setTimeout(() => authUsername.focus(), 0);
 }
 
-function enterApp(username) {
-  state.user = username;
-  sessionStorage.setItem("buddy-session-v1", username);
-  loadUserData();
-  document.querySelector("#accountName").textContent = username;
+async function enterApp(user) {
+  state.user = user.id;
+  state.email = user.email || "";
+  state.displayName = user.user_metadata?.display_name || state.email.split("@")[0] || "小年糕";
+  loadCachedUserData();
+  document.querySelector("#accountName").textContent = state.displayName;
+  document.querySelector("#accountEmail").textContent = state.email;
   authGate.hidden = true;
   app.classList.remove("auth-hidden");
   renderCourse();
   updateDashboard();
   updatePath();
   createIcons();
+  await loadCloudData();
 }
 
 function toggleAuthMode() {
   authMode = authMode === "login" ? "register" : "login";
   const registering = authMode === "register";
+  authNicknameLabel.hidden = !registering;
+  authEmailLabel.hidden = false;
+  authPasswordLabel.hidden = false;
+  authNickname.required = registering;
+  authUsername.required = true;
+  authPassword.required = true;
   authPassword.autocomplete = registering ? "new-password" : "current-password";
   authSubmit.textContent = registering ? "创建账号" : "登录";
   authSwitch.textContent = registering ? "已有账号？返回登录" : "没有账号？创建账号";
@@ -375,29 +405,56 @@ function toggleAuthMode() {
 
 function showResetMode() {
   authMode = "reset";
+  authNicknameLabel.hidden = true;
+  authPasswordLabel.hidden = true;
+  authEmailLabel.hidden = false;
+  authNickname.required = false;
+  authPassword.required = false;
   authPassword.value = "";
-  authPassword.autocomplete = "new-password";
-  authSubmit.textContent = "重置密码";
+  authSubmit.textContent = "发送重置邮件";
   authSwitch.textContent = "返回登录";
   authReset.hidden = true;
-  authError.textContent = "仅重置当前设备中的账号，学习记录会保留";
+  authError.textContent = "重置链接会发送到监护人邮箱";
   authError.classList.add("info");
-  authPassword.focus();
+  authUsername.focus();
+}
+
+function showUpdatePasswordMode() {
+  authMode = "update";
+  authNicknameLabel.hidden = true;
+  authEmailLabel.hidden = true;
+  authPasswordLabel.hidden = false;
+  authUsername.required = false;
+  authPassword.required = true;
+  authPassword.value = "";
+  authPassword.autocomplete = "new-password";
+  authSubmit.textContent = "设置新密码";
+  authSwitch.textContent = "返回登录";
+  authReset.hidden = true;
+  authError.textContent = "请输入新的登录密码";
+  authError.classList.add("info");
+  authGate.hidden = false;
+  app.classList.add("auth-hidden");
+  setTimeout(() => authPassword.focus(), 0);
 }
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  const username = authUsername.value.trim();
+  const email = authUsername.value.trim().toLowerCase();
+  const nickname = authNickname.value.trim();
   const password = authPassword.value;
-  const accounts = getAccounts();
   authError.textContent = "";
   authError.classList.remove("info");
 
-  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/.test(username)) {
-    authError.textContent = "账号需为 2-20 位中文、字母、数字或下划线";
+  if (authMode !== "update" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    authError.textContent = "请输入有效的监护人邮箱";
     return;
   }
-  if (password.length < 6) {
+  if (authMode === "register" && (nickname.length < 1 || nickname.length > 30)) {
+    authError.textContent = "孩子昵称需为 1-30 个字符";
+    return;
+  }
+  if (!["reset"].includes(authMode) && password.length < 6) {
     authError.textContent = "密码至少需要 6 位";
     return;
   }
@@ -405,30 +462,59 @@ async function handleAuthSubmit(event) {
   authSubmit.disabled = true;
   try {
     if (authMode === "register") {
-      if (accounts[username]) throw new Error("这个账号已经存在");
-      const salt = createSalt();
-      accounts[username] = { salt, hash: await hashPassword(password, salt) };
-      localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: nickname }, emailRedirectTo: APP_URL },
+      });
+      if (error) throw error;
+      if (!data.session) {
+        authError.textContent = "验证邮件已发送，请在邮箱中确认后登录";
+        authError.classList.add("info");
+        authMode = "login";
+        authSubmit.textContent = "登录";
+        authSwitch.textContent = "没有账号？创建账号";
+        authNicknameLabel.hidden = true;
+        authPassword.value = "";
+        return;
+      }
+      authForm.reset();
+      await enterApp(data.user);
     } else if (authMode === "reset") {
-      if (!accounts[username]) throw new Error("当前设备找不到这个账号，请回到原注册入口");
-      const salt = createSalt();
-      accounts[username] = { salt, hash: await hashPassword(password, salt) };
-      localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+      if (error) throw error;
+      authError.textContent = "重置邮件已发送，请打开邮件中的链接";
+      authError.classList.add("info");
+    } else if (authMode === "update") {
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if (error) throw error;
+      const { data } = await supabaseClient.auth.getUser();
+      authForm.reset();
+      await enterApp(data.user);
+      showToast("新密码已生效");
     } else {
-      const account = accounts[username];
-      if (!account) throw new Error("当前设备找不到这个账号，请确认登录入口");
-      if (await hashPassword(password, account.salt) !== account.hash) throw new Error("密码不正确，请检查后重试");
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      authForm.reset();
+      await enterApp(data.user);
     }
-    authForm.reset();
-    enterApp(username);
   } catch (error) {
-    authError.textContent = error.message || "暂时无法登录，请稍后重试";
+    authError.textContent = getFriendlyAuthError(error);
   } finally {
     authSubmit.disabled = false;
   }
 }
 
-function getAccounts() {
+function getFriendlyAuthError(error) {
+  const message = error?.message || "";
+  if (/invalid login credentials/i.test(message)) return "邮箱或密码不正确";
+  if (/already registered/i.test(message)) return "该邮箱已经注册，请直接登录";
+  if (/email rate limit/i.test(message)) return "邮件发送过于频繁，请稍后再试";
+  if (/network|fetch/i.test(message)) return "网络连接失败，请检查网络后重试";
+  return message || "暂时无法登录，请稍后重试";
+}
+
+function getLegacyAccounts() {
   try {
     return JSON.parse(localStorage.getItem("buddy-accounts-v1") || "{}");
   } catch {
@@ -436,36 +522,128 @@ function getAccounts() {
   }
 }
 
-function createSalt() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return btoa(String.fromCharCode(...bytes));
-}
-
-async function hashPassword(password, salt) {
-  const data = new TextEncoder().encode(`${salt}:${password}`);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function userStorageKey(name) {
   return `buddy-${name}-v2:${state.user}`;
 }
 
-function loadUserData() {
-  state.stars = Number(localStorage.getItem(userStorageKey("stars")) || 0);
-  state.unitProgress = Number(localStorage.getItem(userStorageKey("unit2-progress")) || 0);
-  state.dailyDone = Number(localStorage.getItem(userStorageKey("daily-count")) || 0);
+function readCachedProgress(userId = state.user) {
+  const key = (name) => `buddy-${name}-v2:${userId}`;
+  let history = {};
   try {
-    state.history = JSON.parse(localStorage.getItem(userStorageKey("history")) || "{}");
+    history = JSON.parse(localStorage.getItem(key("history")) || "{}");
   } catch {
-    state.history = {};
+    history = {};
   }
+  return {
+    stars: Number(localStorage.getItem(key("stars")) || 0),
+    unitProgress: Number(localStorage.getItem(key("unit2-progress")) || 0),
+    dailyDone: Number(localStorage.getItem(key("daily-count")) || 0),
+    history,
+    updatedAt: localStorage.getItem(key("updated-at")) || "",
+  };
+}
+
+function loadCachedUserData() {
+  const cached = readCachedProgress();
+  state.stars = cached.stars;
+  state.unitProgress = cached.unitProgress;
+  state.dailyDone = cached.dailyDone;
+  state.history = cached.history;
+}
+
+function applyProgress(progress) {
+  state.stars = Number(progress.stars || 0);
+  state.unitProgress = Number(progress.unit_progress ?? progress.unitProgress ?? 0);
+  state.dailyDone = Number(progress.daily_done ?? progress.dailyDone ?? 0);
+  state.history = progress.history && typeof progress.history === "object" ? progress.history : {};
+}
+
+function findLegacyProgress() {
+  const accounts = getLegacyAccounts();
+  const candidates = [legacySessionUser, ...Object.keys(accounts)].filter(Boolean);
+  for (const username of [...new Set(candidates)]) {
+    const progress = readCachedProgress(username);
+    if (progress.stars || progress.unitProgress || progress.dailyDone || Object.keys(progress.history).length) {
+      return progress;
+    }
+  }
+  return null;
+}
+
+async function loadCloudData() {
+  const [{ data: profile }, { data: remote, error }] = await Promise.all([
+    supabaseClient.from("profiles").select("display_name").eq("id", state.user).maybeSingle(),
+    supabaseClient.from("learning_progress").select("*").eq("user_id", state.user).maybeSingle(),
+  ]);
+  if (profile?.display_name) {
+    state.displayName = profile.display_name;
+    document.querySelector("#accountName").textContent = state.displayName;
+  }
+  if (error || !remote) {
+    if (error) showToast("云端暂不可用，已切换为本地模式");
+    updateDashboard();
+    updatePath();
+    return;
+  }
+
+  const cached = readCachedProgress();
+  const legacy = findLegacyProgress();
+  const remoteEmpty = !remote.stars && !remote.unit_progress && !remote.daily_done && !Object.keys(remote.history || {}).length;
+  if (remoteEmpty && legacy) {
+    applyProgress(legacy);
+    saveUserData();
+    showToast("已迁移这台设备上的学习记录");
+    renderCourse();
+    updateDashboard();
+    updatePath();
+    return;
+  }
+
+  const pending = localStorage.getItem(userStorageKey("sync-pending")) === "1";
+  if (pending && cached.updatedAt && new Date(cached.updatedAt) > new Date(remote.updated_at)) {
+    await pushCloudProgress();
+  } else {
+    applyProgress(remote);
+    saveCachedUserData(false);
+    localStorage.removeItem(userStorageKey("sync-pending"));
+  }
+  renderCourse();
+  updateDashboard();
+  updatePath();
+}
+
+function saveCachedUserData(pending = true) {
+  localStorage.setItem(userStorageKey("stars"), String(state.stars));
+  localStorage.setItem(userStorageKey("unit2-progress"), String(state.unitProgress));
+  localStorage.setItem(userStorageKey("daily-count"), String(state.dailyDone));
+  localStorage.setItem(userStorageKey("history"), JSON.stringify(state.history));
+  localStorage.setItem(userStorageKey("updated-at"), new Date().toISOString());
+  if (pending) localStorage.setItem(userStorageKey("sync-pending"), "1");
+}
+
+function saveUserData() {
+  saveCachedUserData(true);
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(pushCloudProgress, 250);
+}
+
+async function pushCloudProgress() {
+  if (!state.user || !navigator.onLine) return;
+  const { error } = await supabaseClient.from("learning_progress").upsert({
+    user_id: state.user,
+    stars: state.stars,
+    unit_progress: state.unitProgress,
+    daily_done: state.dailyDone,
+    history: state.history,
+    updated_at: new Date().toISOString(),
+  });
+  if (!error) localStorage.removeItem(userStorageKey("sync-pending"));
 }
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js?v=11").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js?v=12").catch(() => {
       // The app remains usable online when service-worker registration is unavailable.
     });
   });
@@ -1097,17 +1275,14 @@ function renderResult() {
   const total = state.questions.length;
   const gained = state.correct * 2;
   state.stars += gained;
-  localStorage.setItem(userStorageKey("stars"), state.stars);
 
   if (state.lessonKey === "daily") {
     state.dailyDone = 20;
-    localStorage.setItem(userStorageKey("daily-count"), "20");
   } else {
     const keys = ["words", "story", "game", "extended", "letters"];
     const completedIndex = keys.indexOf(state.lessonKey);
     if (completedIndex >= 0 && completedIndex >= state.unitProgress) {
       state.unitProgress = Math.min(5, completedIndex + 1);
-      localStorage.setItem(userStorageKey("unit2-progress"), state.unitProgress);
     }
   }
   if (["words", "story", "game", "extended", "letters", "daily"].includes(state.lessonKey)) {
@@ -1117,8 +1292,8 @@ function renderResult() {
       total,
       responses: state.responses,
     };
-    localStorage.setItem(userStorageKey("history"), JSON.stringify(state.history));
   }
+  saveUserData();
 
   lessonProgress.style.width = "100%";
   state.finished = true;
@@ -1188,10 +1363,10 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function logout() {
+async function logout() {
   accountDialog.close();
-  sessionStorage.removeItem("buddy-session-v1");
   closeLesson();
+  await supabaseClient.auth.signOut();
   showAuth();
 }
 
