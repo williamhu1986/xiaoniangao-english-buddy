@@ -242,6 +242,7 @@ const lessonSets = {
 
 const state = {
   page: "learn",
+  user: "",
   lessonKey: "",
   questions: [],
   index: 0,
@@ -250,29 +251,46 @@ const state = {
   recorded: false,
   answered: false,
   finished: false,
+  reviewMode: false,
   correct: 0,
   hearts: 5,
-  stars: Number(localStorage.getItem("buddy-stars") || 46),
-  unitProgress: Number(localStorage.getItem("buddy-unit2-progress") || 1),
-  dailyDone: Number(localStorage.getItem("buddy-daily-count") || 7),
+  stars: 0,
+  unitProgress: 0,
+  dailyDone: 0,
+  responses: [],
+  history: {},
 };
 
 const lessonDialog = document.querySelector("#lessonDialog");
 const guideDialog = document.querySelector("#guideDialog");
+const accountDialog = document.querySelector("#accountDialog");
 const exercise = document.querySelector("#exercise");
 const answerBar = document.querySelector("#answerBar");
 const answerMessage = document.querySelector("#answerMessage");
 const checkButton = document.querySelector("#checkButton");
 const lessonProgress = document.querySelector("#lessonProgress");
+const authGate = document.querySelector("#authGate");
+const authForm = document.querySelector("#authForm");
+const authUsername = document.querySelector("#authUsername");
+const authPassword = document.querySelector("#authPassword");
+const authConfirm = document.querySelector("#authConfirm");
+const confirmField = document.querySelector("#confirmField");
+const authError = document.querySelector("#authError");
+const authSubmit = document.querySelector("#authSubmit");
+const authSwitch = document.querySelector("#authSwitch");
+const app = document.querySelector("#app");
 let toastTimer;
+let authMode = "login";
+let preferredVoice = null;
+let audioContext = null;
 
 function init() {
   renderCourse();
-  updateDashboard();
-  updatePath();
   registerServiceWorker();
   document.addEventListener("click", handleClick);
   document.addEventListener("input", handleInput);
+  authForm.addEventListener("submit", handleAuthSubmit);
+  authSwitch.addEventListener("click", toggleAuthMode);
   lessonDialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     closeLesson();
@@ -281,7 +299,136 @@ function init() {
     event.preventDefault();
     guideDialog.close();
   });
+  accountDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    accountDialog.close();
+  });
+  prepareVoices();
+  if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", prepareVoices);
+  restoreSession();
   createIcons();
+}
+
+function restoreSession() {
+  const username = sessionStorage.getItem("buddy-session-v1");
+  const account = getAccounts()[username];
+  if (username && account) {
+    enterApp(username);
+    return;
+  }
+  showAuth();
+}
+
+function showAuth() {
+  state.user = "";
+  authMode = "login";
+  confirmField.hidden = true;
+  authConfirm.required = false;
+  authPassword.autocomplete = "current-password";
+  authSubmit.textContent = "登录";
+  authSwitch.textContent = "没有账号？创建账号";
+  authError.textContent = "";
+  authGate.hidden = false;
+  app.classList.add("auth-hidden");
+  authPassword.value = "";
+  authConfirm.value = "";
+  setTimeout(() => authUsername.focus(), 0);
+}
+
+function enterApp(username) {
+  state.user = username;
+  sessionStorage.setItem("buddy-session-v1", username);
+  loadUserData();
+  document.querySelector("#accountName").textContent = username;
+  authGate.hidden = true;
+  app.classList.remove("auth-hidden");
+  updateDashboard();
+  updatePath();
+  createIcons();
+}
+
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "register" : "login";
+  const registering = authMode === "register";
+  confirmField.hidden = !registering;
+  authConfirm.required = registering;
+  authPassword.autocomplete = registering ? "new-password" : "current-password";
+  authSubmit.textContent = registering ? "创建账号" : "登录";
+  authSwitch.textContent = registering ? "已有账号？返回登录" : "没有账号？创建账号";
+  authError.textContent = "";
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const username = authUsername.value.trim();
+  const password = authPassword.value;
+  const accounts = getAccounts();
+  authError.textContent = "";
+
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/.test(username)) {
+    authError.textContent = "账号需为 2-20 位中文、字母、数字或下划线";
+    return;
+  }
+  if (password.length < 6) {
+    authError.textContent = "密码至少需要 6 位";
+    return;
+  }
+
+  authSubmit.disabled = true;
+  try {
+    if (authMode === "register") {
+      if (accounts[username]) throw new Error("这个账号已经存在");
+      if (password !== authConfirm.value) throw new Error("两次输入的密码不一致");
+      const salt = createSalt();
+      accounts[username] = { salt, hash: await hashPassword(password, salt) };
+      localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
+    } else {
+      const account = accounts[username];
+      if (!account || await hashPassword(password, account.salt) !== account.hash) {
+        throw new Error("账号或密码不正确");
+      }
+    }
+    authForm.reset();
+    enterApp(username);
+  } catch (error) {
+    authError.textContent = error.message || "暂时无法登录，请稍后重试";
+  } finally {
+    authSubmit.disabled = false;
+  }
+}
+
+function getAccounts() {
+  try {
+    return JSON.parse(localStorage.getItem("buddy-accounts-v1") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function createSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+async function hashPassword(password, salt) {
+  const data = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function userStorageKey(name) {
+  return `buddy-${name}-v2:${state.user}`;
+}
+
+function loadUserData() {
+  state.stars = Number(localStorage.getItem(userStorageKey("stars")) || 0);
+  state.unitProgress = Number(localStorage.getItem(userStorageKey("unit2-progress")) || 0);
+  state.dailyDone = Number(localStorage.getItem(userStorageKey("daily-count")) || 0);
+  try {
+    state.history = JSON.parse(localStorage.getItem(userStorageKey("history")) || "{}");
+  } catch {
+    state.history = {};
+  }
 }
 
 function registerServiceWorker() {
@@ -326,9 +473,12 @@ function handleClick(event) {
     "close-guide": () => guideDialog.close(),
     "start-current": () => {
       guideDialog.close();
-      startLesson("story", lessonSets.story);
+      openPathLesson("story");
     },
     "close-lesson": closeLesson,
+    "account": () => accountDialog.showModal(),
+    "close-account": () => accountDialog.close(),
+    "logout": logout,
     "play-sound": () => speak(action.dataset.audio),
     "record": () => recordAnswer(action),
     "check-answer": checkOrContinue,
@@ -376,18 +526,23 @@ function updateDashboard() {
   document.querySelector("#starCount").textContent = state.stars;
   document.querySelector("#goalDone").textContent = state.dailyDone;
   document.querySelector("#unitProgress").textContent = Math.min(state.unitProgress, 5);
+  const ring = document.querySelector(".goal-ring");
+  ring.style.setProperty("--progress", Math.min(100, state.dailyDone * 5));
+  const remaining = Math.max(0, 20 - state.dailyDone);
+  const goal = document.querySelector(".daily-goal h2");
+  goal.textContent = remaining ? `再完成 ${remaining} 题` : "今日目标已完成";
 }
 
 function updatePath() {
   const keys = ["words", "story", "game", "extended", "letters"];
   document.querySelectorAll(".path-stop").forEach((stop, index) => {
     stop.classList.remove("complete", "current", "locked");
-    if (index < state.unitProgress) stop.classList.add("complete");
+    if (state.history[keys[index]]) stop.classList.add("complete");
     else if (index === state.unitProgress) stop.classList.add("current");
     else stop.classList.add("locked");
 
     const node = stop.querySelector(".lesson-node");
-    const icon = index < state.unitProgress ? "check" : getLessonIcon(keys[index]);
+    const icon = state.history[keys[index]] ? "check" : getLessonIcon(keys[index]);
     node.innerHTML = `<i data-lucide="${icon}"></i>`;
   });
   document.querySelectorAll(".start-flag").forEach((item) => item.remove());
@@ -407,6 +562,10 @@ function openPathLesson(key) {
     showToast("先完成前一关，就能解锁这里");
     return;
   }
+  if (state.history[key]) {
+    showReview(key);
+    return;
+  }
   startLesson(key, lessonSets[key]);
 }
 
@@ -416,6 +575,8 @@ function startLesson(key, questions) {
   state.index = 0;
   state.correct = 0;
   state.hearts = 5;
+  state.responses = [];
+  state.reviewMode = false;
   resetQuestionState();
   renderQuestion();
   lessonDialog.showModal();
@@ -423,6 +584,10 @@ function startLesson(key, questions) {
 }
 
 function startDailyPractice() {
+  if (state.history.daily) {
+    showReview("daily");
+    return;
+  }
   const pool = [...lessonSets.words, ...lessonSets.story, ...lessonSets.game, ...lessonSets.extended, ...lessonSets.letters];
   const questions = Array.from({ length: 20 }, (_, index) => ({ ...pool[index % pool.length] }));
   startLesson("daily", questions);
@@ -546,6 +711,10 @@ function recordAnswer(button) {
 }
 
 function checkOrContinue() {
+  if (state.reviewMode) {
+    closeLesson();
+    return;
+  }
   if (state.finished) {
     finishLesson();
     return;
@@ -558,32 +727,45 @@ function checkOrContinue() {
   const question = state.questions[state.index];
   let correct = false;
   let correctText = "";
+  let responseText = "";
 
   if (question.type === "choice" || question.type === "listen") {
     correct = state.selected === question.answer;
     correctText = question.options[question.answer][1];
+    responseText = question.options[state.selected]?.[1] || "未作答";
     const options = document.querySelectorAll(".answer-option");
     options[question.answer]?.classList.add("correct");
     if (!correct) options[state.selected]?.classList.add("wrong");
   } else if (question.type === "speak") {
     correct = state.recorded;
     correctText = "发音清楚，继续保持";
+    responseText = question.phrase;
   } else if (question.type === "order") {
     const response = state.ordered.map((index) => question.words[index]).join(" ");
     correct = normalize(response) === normalize(question.answerText);
     correctText = question.answerText;
+    responseText = response;
   } else {
     const input = document.querySelector("#writeAnswer");
     correct = normalize(input.value) === normalize(question.answerText);
     correctText = question.answerText.toUpperCase();
+    responseText = input.value;
   }
 
   state.answered = true;
+  state.responses.push({
+    title: question.title,
+    response: responseText,
+    answer: correctText,
+    correct,
+  });
   if (correct) {
     state.correct += 1;
+    playFeedback(true);
     answerBar.classList.add("correct");
     answerMessage.innerHTML = `<strong>太棒了！</strong><span>${correctText}</span>`;
   } else {
+    playFeedback(false);
     state.hearts = Math.max(0, state.hearts - 1);
     document.querySelector("#lessonHearts").textContent = state.hearts;
     answerBar.classList.add("wrong");
@@ -603,18 +785,27 @@ function renderResult() {
   const total = state.questions.length;
   const gained = state.correct * 2;
   state.stars += gained;
-  localStorage.setItem("buddy-stars", state.stars);
+  localStorage.setItem(userStorageKey("stars"), state.stars);
 
   if (state.lessonKey === "daily") {
     state.dailyDone = 20;
-    localStorage.setItem("buddy-daily-count", "20");
+    localStorage.setItem(userStorageKey("daily-count"), "20");
   } else {
     const keys = ["words", "story", "game", "extended", "letters"];
     const completedIndex = keys.indexOf(state.lessonKey);
     if (completedIndex >= 0 && completedIndex >= state.unitProgress) {
       state.unitProgress = Math.min(5, completedIndex + 1);
-      localStorage.setItem("buddy-unit2-progress", state.unitProgress);
+      localStorage.setItem(userStorageKey("unit2-progress"), state.unitProgress);
     }
+  }
+  if (["words", "story", "game", "extended", "letters", "daily"].includes(state.lessonKey)) {
+    state.history[state.lessonKey] = {
+      completedAt: new Date().toISOString(),
+      correct: state.correct,
+      total,
+      responses: state.responses,
+    };
+    localStorage.setItem(userStorageKey("history"), JSON.stringify(state.history));
   }
 
   lessonProgress.style.width = "100%";
@@ -635,6 +826,7 @@ function renderResult() {
   answerMessage.innerHTML = "";
   checkButton.disabled = false;
   checkButton.textContent = "完成";
+  playCompletion();
   createIcons();
 }
 
@@ -643,6 +835,51 @@ function finishLesson() {
   updateDashboard();
   updatePath();
   showToast("学习记录已保存，获得新星星");
+}
+
+function showReview(key) {
+  const record = state.history[key];
+  if (!record) return;
+  state.lessonKey = key;
+  state.reviewMode = true;
+  state.finished = false;
+  lessonProgress.style.width = "100%";
+  document.querySelector("#lessonHearts").textContent = "—";
+  exercise.innerHTML = `
+    <div class="review-screen">
+      <span class="exercise-kicker">已完成 · 仅供回看</span>
+      <h1>答题检查</h1>
+      <p class="review-summary">${record.correct}/${record.total} 题正确 · ${formatDate(record.completedAt)}</p>
+      <div class="review-list">
+        ${record.responses.map((item, index) => `
+          <article class="review-item ${item.correct ? "" : "wrong"}">
+            <span class="review-status"><i data-lucide="${item.correct ? "check" : "x"}"></i></span>
+            <div class="review-copy">
+              <strong>${index + 1}. ${escapeHtml(item.title)}</strong>
+              <span>你的答案：<b class="review-answer">${escapeHtml(item.response || "未作答")}</b></span>
+              ${item.correct ? "" : `<span>正确答案：<b class="review-answer">${escapeHtml(item.answer)}</b></span>`}
+            </div>
+          </article>`).join("")}
+      </div>
+    </div>`;
+  answerBar.className = "answer-bar";
+  answerMessage.innerHTML = '<strong>这组题已完成</strong><span>可以检查答案，但不能再次作答</span>';
+  checkButton.disabled = false;
+  checkButton.textContent = "关闭";
+  lessonDialog.showModal();
+  document.body.style.overflow = "hidden";
+  createIcons();
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function logout() {
+  accountDialog.close();
+  sessionStorage.removeItem("buddy-session-v1");
+  closeLesson();
+  showAuth();
 }
 
 function closeLesson() {
@@ -663,9 +900,59 @@ function speak(text) {
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.72;
-  utterance.pitch = 1.05;
+  utterance.rate = 0.78;
+  utterance.pitch = 1.08;
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+    utterance.lang = preferredVoice.lang;
+  }
   speechSynthesis.speak(utterance);
+}
+
+function prepareVoices() {
+  if (!("speechSynthesis" in window)) return;
+  const voices = speechSynthesis.getVoices();
+  const names = ["Samantha", "Ava", "Karen", "Moira", "Tessa", "Xiaoxiao", "Zira", "Jenny", "Aria"];
+  preferredVoice = names.map((name) => voices.find((voice) => voice.name.includes(name) && voice.lang.startsWith("en"))).find(Boolean)
+    || voices.find((voice) => voice.lang.startsWith("en") && /female|woman/i.test(voice.name))
+    || voices.find((voice) => voice.lang.startsWith("en"))
+    || null;
+}
+
+function playFeedback(correct) {
+  playTones(correct
+    ? [{ frequency: 523, start: 0, duration: .11 }, { frequency: 659, start: .1, duration: .11 }, { frequency: 784, start: .2, duration: .18 }]
+    : [{ frequency: 392, start: 0, duration: .15 }, { frequency: 330, start: .14, duration: .22 }], correct ? .12 : .08);
+}
+
+function playCompletion() {
+  playTones([
+    { frequency: 523, start: 0, duration: .1 },
+    { frequency: 659, start: .09, duration: .1 },
+    { frequency: 784, start: .18, duration: .1 },
+    { frequency: 1047, start: .27, duration: .25 },
+  ], .1);
+}
+
+function playTones(tones, volume) {
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioContext.currentTime;
+    tones.forEach(({ frequency, start, duration }) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(.001, now + start);
+      gain.gain.exponentialRampToValueAtTime(volume, now + start + .02);
+      gain.gain.exponentialRampToValueAtTime(.001, now + start + duration);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(now + start);
+      oscillator.stop(now + start + duration + .03);
+    });
+  } catch {
+    // Audio feedback is optional when the browser blocks Web Audio.
+  }
 }
 
 function normalize(value) {
@@ -674,6 +961,10 @@ function normalize(value) {
 
 function escapeAttr(value) {
   return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function showToast(message) {

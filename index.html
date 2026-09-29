@@ -18,7 +18,34 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app">
+  <section class="auth-gate" id="authGate">
+    <div class="auth-brand">
+      <span class="auth-mascot" aria-hidden="true"><i></i><b></b></span>
+      <span class="eyebrow">ENGLISH BUDDY</span>
+      <h1>欢迎回来，小年糕</h1>
+      <p>登录后继续今天的英语闯关</p>
+    </div>
+    <form class="auth-form" id="authForm">
+      <label>
+        <span>账号</span>
+        <input id="authUsername" name="username" autocomplete="username" maxlength="20" placeholder="请输入账号" required>
+      </label>
+      <label>
+        <span>密码</span>
+        <input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required>
+      </label>
+      <label class="confirm-field" id="confirmField" hidden>
+        <span>确认密码</span>
+        <input id="authConfirm" name="confirm" type="password" autocomplete="new-password" minlength="6" placeholder="再次输入密码">
+      </label>
+      <p class="auth-error" id="authError" role="alert"></p>
+      <button class="auth-submit" id="authSubmit" type="submit">登录</button>
+      <button class="auth-switch" id="authSwitch" type="button">没有账号？创建账号</button>
+    </form>
+    <small class="local-account-note"><i data-lucide="shield-check"></i>账号仅保存在当前设备</small>
+  </section>
+
+  <div class="app auth-hidden" id="app">
     <aside class="sidebar">
       <a class="brand" href="#" data-nav="learn" aria-label="小年糕的英语 Buddy">
         <span class="brand-mascot" aria-hidden="true"><i></i><b></b></span>
@@ -47,6 +74,7 @@
           <span class="stat streak"><i data-lucide="flame"></i><b id="streakCount">7</b></span>
           <span class="stat stars"><i data-lucide="star"></i><b id="starCount">46</b></span>
           <span class="stat hearts"><i data-lucide="heart"></i><b id="heartCount">5</b></span>
+          <button class="account-button" type="button" data-action="account" aria-label="账号"><i data-lucide="circle-user-round"></i></button>
         </div>
       </header>
 
@@ -221,6 +249,17 @@
       <div class="guide-row"><span>拓展阅读</span><strong>The tortoise and the rabbit</strong></div>
       <div class="guide-row"><span>字母</span><strong>Ee · Ff · Gg · Hh</strong></div>
       <button class="primary-cta" type="button" data-action="start-current">开始第 2 关</button>
+    </div>
+  </dialog>
+
+  <dialog id="accountDialog" class="account-dialog">
+    <div class="account-sheet">
+      <button class="close-button" type="button" data-action="close-account" aria-label="关闭"><i data-lucide="x"></i></button>
+      <span class="account-avatar"><i data-lucide="user-round"></i></span>
+      <span class="eyebrow">当前账号</span>
+      <h2 id="accountName">小年糕</h2>
+      <p>学习记录保存在这台设备中</p>
+      <button class="logout-button" type="button" data-action="logout"><i data-lucide="log-out"></i>退出登录</button>
     </div>
   </dialog>
 
