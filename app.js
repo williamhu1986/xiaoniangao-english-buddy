@@ -449,7 +449,7 @@ function loadUserData() {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js?v=8").catch(() => {
       // The app remains usable online when service-worker registration is unavailable.
     });
   });
