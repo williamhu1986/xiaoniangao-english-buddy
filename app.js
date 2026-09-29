@@ -214,6 +214,7 @@ const lessonSets = {
     {
       type: "choice",
       title: "frog 以哪个字母开头？",
+      audio: "F. Frog.",
       scene: "🐸",
       options: [["", "Ee"], ["", "Ff"], ["", "Hh"]],
       answer: 1,
@@ -221,6 +222,7 @@ const lessonSets = {
     {
       type: "choice",
       title: "选出 Gg 对应的动物",
+      audio: "G. Giraffe.",
       options: [["🐘", "elephant"], ["🦒", "giraffe"], ["🐔", "hen"]],
       answer: 1,
     },
@@ -233,6 +235,7 @@ const lessonSets = {
     {
       type: "write",
       title: "写出 elephant 的首字母",
+      audio: "E. Elephant.",
       scene: "🐘",
       answerText: "e",
       placeholder: "输入字母",
@@ -624,40 +627,30 @@ function renderQuestion() {
   let body = "";
   if (question.type === "listen") {
     body = `
-      <div class="prompt-scene">
-        ${question.scene ? `<span class="scene-emoji">${question.scene}</span>` : ""}
-        <button class="sound-button" type="button" data-action="play-sound" data-audio="${escapeAttr(question.audio)}" aria-label="播放音频">
-          <i data-lucide="volume-2"></i>
-        </button>
-        ${question.speech ? `<span class="speech-bubble">${question.speech}</span>` : ""}
-      </div>
+      ${renderQuestionPrompt(question)}
       ${renderOptions(question.options)}`;
   } else if (question.type === "choice") {
     body = `
-      ${question.scene || question.speech ? `
-        <div class="prompt-scene">
-          ${question.scene ? `<span class="scene-emoji">${question.scene}</span>` : ""}
-          ${question.speech ? `<span class="speech-bubble">${question.speech}</span>` : ""}
-        </div>` : ""}
+      ${renderQuestionPrompt(question)}
       ${renderOptions(question.options)}`;
   } else if (question.type === "speak") {
     body = `
+      ${renderQuestionPrompt(question, question.phrase)}
       <div class="record-zone">
-        <div class="record-word">${question.phrase}</div>
         <p>${question.hint}</p>
         <button class="record-button" type="button" data-action="record" aria-label="开始录音"><i data-lucide="mic-2"></i></button>
         <p>按一下麦克风，再大声读出来</p>
       </div>`;
   } else if (question.type === "order") {
     body = `
-      <div class="prompt-scene"><span class="speech-bubble">${question.translation}</span></div>
+      ${renderQuestionPrompt(question, question.translation)}
       <div class="sentence-line" id="sentenceLine"></div>
       <div class="word-bank">
         ${question.words.map((word, index) => `<button class="word-chip" type="button" data-word-index="${index}">${word}</button>`).join("")}
       </div>`;
   } else {
     body = `
-      ${question.scene ? `<div class="prompt-scene"><span class="scene-emoji">${question.scene}</span></div>` : ""}
+      ${renderQuestionPrompt(question)}
       <input class="write-input" id="writeAnswer" autocomplete="off" autocapitalize="none" placeholder="${question.placeholder || "输入答案"}" aria-label="输入答案">`;
   }
 
@@ -666,6 +659,27 @@ function renderQuestion() {
     <h1>${question.title}</h1>
     ${body}`;
   createIcons();
+}
+
+function renderQuestionPrompt(question, displayText = "") {
+  const audio = getQuestionAudio(question);
+  return `
+    <div class="prompt-scene">
+      ${question.scene ? `<span class="scene-emoji">${question.scene}</span>` : ""}
+      <button class="sound-button" type="button" data-action="play-sound" data-audio="${escapeAttr(audio)}" aria-label="播放英文读音">
+        <i data-lucide="volume-2"></i>
+      </button>
+      ${displayText ? `<span class="speech-bubble">${displayText}</span>` : ""}
+      ${question.speech ? `<span class="speech-bubble">${question.speech}</span>` : ""}
+    </div>`;
+}
+
+function getQuestionAudio(question) {
+  if (question.audio) return question.audio;
+  if (question.phrase) return question.phrase;
+  if (question.answerText) return question.answerText;
+  if (question.options && Number.isInteger(question.answer)) return question.options[question.answer][1];
+  return "";
 }
 
 function renderOptions(options) {
