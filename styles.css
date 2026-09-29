@@ -98,6 +98,7 @@ button:focus-visible { outline: 3px solid rgba(28,176,246,.35); outline-offset: 
 }
 .auth-form input:focus { outline: 0; border-color: var(--blue); background: #f6fcff; }
 .auth-error { min-height: 18px; margin: -3px 0 0; color: #d33131; font-size: 12px; font-weight: 700; }
+.auth-error.info { color: var(--blue-dark); }
 .auth-submit {
   height: 52px;
   border: 0;
@@ -109,7 +110,9 @@ button:focus-visible { outline: 3px solid rgba(28,176,246,.35); outline-offset: 
   cursor: pointer;
 }
 .auth-submit:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--green-dark); }
-.auth-switch { border: 0; background: transparent; color: var(--blue-dark); font-size: 13px; font-weight: 800; cursor: pointer; }
+.auth-switch, .auth-reset { border: 0; background: transparent; color: var(--blue-dark); font-size: 13px; font-weight: 800; cursor: pointer; }
+.auth-reset { margin-top: -7px; color: var(--muted); font-size: 12px; }
+.auth-reset[hidden] { display: none; }
 .local-account-note { margin-top: 18px; color: var(--muted); display: flex; align-items: center; gap: 6px; font-size: 11px; }
 .local-account-note svg { width: 15px; height: 15px; color: var(--green-dark); }
 

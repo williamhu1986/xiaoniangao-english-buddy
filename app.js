@@ -285,6 +285,7 @@ const authPassword = document.querySelector("#authPassword");
 const authError = document.querySelector("#authError");
 const authSubmit = document.querySelector("#authSubmit");
 const authSwitch = document.querySelector("#authSwitch");
+const authReset = document.querySelector("#authReset");
 const app = document.querySelector("#app");
 let toastTimer;
 let authMode = "login";
@@ -300,6 +301,7 @@ function init() {
   document.addEventListener("input", handleInput);
   authForm.addEventListener("submit", handleAuthSubmit);
   authSwitch.addEventListener("click", toggleAuthMode);
+  authReset.addEventListener("click", showResetMode);
   lessonDialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     closeLesson();
@@ -338,7 +340,9 @@ function showAuth() {
   authPassword.autocomplete = "current-password";
   authSubmit.textContent = "登录";
   authSwitch.textContent = "没有账号？创建账号";
+  authReset.hidden = false;
   authError.textContent = "";
+  authError.classList.remove("info");
   authGate.hidden = false;
   app.classList.add("auth-hidden");
   authPassword.value = "";
@@ -364,7 +368,21 @@ function toggleAuthMode() {
   authPassword.autocomplete = registering ? "new-password" : "current-password";
   authSubmit.textContent = registering ? "创建账号" : "登录";
   authSwitch.textContent = registering ? "已有账号？返回登录" : "没有账号？创建账号";
+  authReset.hidden = registering;
   authError.textContent = "";
+  authError.classList.remove("info");
+}
+
+function showResetMode() {
+  authMode = "reset";
+  authPassword.value = "";
+  authPassword.autocomplete = "new-password";
+  authSubmit.textContent = "重置密码";
+  authSwitch.textContent = "返回登录";
+  authReset.hidden = true;
+  authError.textContent = "仅重置当前设备中的账号，学习记录会保留";
+  authError.classList.add("info");
+  authPassword.focus();
 }
 
 async function handleAuthSubmit(event) {
@@ -373,6 +391,7 @@ async function handleAuthSubmit(event) {
   const password = authPassword.value;
   const accounts = getAccounts();
   authError.textContent = "";
+  authError.classList.remove("info");
 
   if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/.test(username)) {
     authError.textContent = "账号需为 2-20 位中文、字母、数字或下划线";
@@ -390,11 +409,15 @@ async function handleAuthSubmit(event) {
       const salt = createSalt();
       accounts[username] = { salt, hash: await hashPassword(password, salt) };
       localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
+    } else if (authMode === "reset") {
+      if (!accounts[username]) throw new Error("当前设备找不到这个账号，请回到原注册入口");
+      const salt = createSalt();
+      accounts[username] = { salt, hash: await hashPassword(password, salt) };
+      localStorage.setItem("buddy-accounts-v1", JSON.stringify(accounts));
     } else {
       const account = accounts[username];
-      if (!account || await hashPassword(password, account.salt) !== account.hash) {
-        throw new Error("账号或密码不正确");
-      }
+      if (!account) throw new Error("当前设备找不到这个账号，请确认登录入口");
+      if (await hashPassword(password, account.salt) !== account.hash) throw new Error("密码不正确，请检查后重试");
     }
     authForm.reset();
     enterApp(username);
@@ -442,7 +465,7 @@ function loadUserData() {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js?v=10").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js?v=11").catch(() => {
       // The app remains usable online when service-worker registration is unavailable.
     });
   });
