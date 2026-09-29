@@ -293,6 +293,7 @@ let authMode = "login";
 let preferredVoice = null;
 let audioContext = null;
 let activeRecognition = null;
+let microphonePermissionGranted = false;
 
 function init() {
   renderCourse();
@@ -449,7 +450,7 @@ function loadUserData() {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js?v=8").catch(() => {
+    navigator.serviceWorker.register("./service-worker.js?v=9").catch(() => {
       // The app remains usable online when service-worker registration is unavailable.
     });
   });
@@ -793,7 +794,7 @@ function toggleWord(index) {
   checkButton.disabled = state.ordered.length === 0;
 }
 
-function recordAnswer(button) {
+async function recordAnswer(button) {
   if (state.speechConfirmed || state.speechListening) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
@@ -803,6 +804,43 @@ function recordAnswer(button) {
 
   stopRecognition();
   speechSynthesis.cancel();
+  state.speechListening = true;
+  button.disabled = true;
+  button.classList.add("requesting");
+  button.innerHTML = '<i data-lucide="loader-circle"></i>';
+  document.querySelector("#recordInstruction").textContent = microphonePermissionGranted ? "正在启动麦克风..." : "正在请求麦克风权限...";
+  createIcons();
+
+  if (!microphonePermissionGranted) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      state.speechListening = false;
+      button.disabled = false;
+      button.classList.remove("requesting");
+      renderSpeechError("当前环境无法访问麦克风，请在 Safari 中打开网页并允许麦克风。");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const liveAudioTrack = stream.getAudioTracks().some((track) => track.readyState === "live");
+      stream.getTracks().forEach((track) => track.stop());
+      if (!liveAudioTrack) throw new Error("no-live-track");
+      microphonePermissionGranted = true;
+    } catch (error) {
+      state.speechListening = false;
+      button.disabled = false;
+      button.classList.remove("requesting");
+      const denied = error?.name === "NotAllowedError" || error?.name === "SecurityError";
+      renderSpeechError(denied
+        ? "麦克风权限未开启，请在系统“设置 → Safari → 麦克风”中允许访问。"
+        : "没有检测到可用的麦克风，请检查系统录音权限。");
+      return;
+    }
+  }
+
+  button.disabled = false;
+  button.classList.remove("requesting");
   const questionIndex = state.index;
   const recognition = new Recognition();
   activeRecognition = recognition;
@@ -844,7 +882,7 @@ function recordAnswer(button) {
       "not-allowed": "需要允许麦克风权限，才能进行口语评分。",
       "audio-capture": "没有检测到可用的麦克风。",
       "no-speech": "没有听到声音，请靠近麦克风再读一次。",
-      network: "语音识别服务暂时不可用，请稍后重试。",
+      network: "麦克风已开启，但在线评分服务连接失败。请检查网络，或在 Safari 浏览器中打开网页重试。",
     };
     renderSpeechError(messages[event.error] || "没有识别成功，请再读一次。");
   };
@@ -864,6 +902,7 @@ function recordAnswer(button) {
   try {
     recognition.start();
   } catch {
+    state.speechListening = false;
     renderSpeechError("麦克风正在使用中，请稍后再试。");
   }
 }

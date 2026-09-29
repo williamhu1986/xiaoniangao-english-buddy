@@ -1,9 +1,9 @@
-const CACHE_NAME = "buddy-shell-v8";
+const CACHE_NAME = "buddy-shell-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=8",
-  "./app.js?v=8",
+  "./styles.css?v=9",
+  "./app.js?v=9",
   "./manifest.webmanifest",
   "./icon-180.png",
   "./icon-192.png",

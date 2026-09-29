@@ -586,9 +586,11 @@ dialog::backdrop { background: rgba(36,36,36,.45); }
 .record-word { margin: 35px 0 25px; font: 700 46px "Fredoka", sans-serif; }
 .record-button { width: 88px; height: 80px; border: 0; border-radius: 50%; color: var(--white); background: var(--purple); box-shadow: 0 8px 0 var(--purple-dark); cursor: pointer; }
 .record-button.recording { animation: pulse 1s infinite; }
+.record-button.requesting svg { animation: spin 1s linear infinite; }
 .record-button:disabled { opacity: .5; cursor: default; box-shadow: 0 5px 0 #999; background: #bbb; }
 .record-button svg { width: 35px; height: 35px; }
 @keyframes pulse { 50% { transform: scale(1.07); } }
+@keyframes spin { to { transform: rotate(360deg); } }
 .record-instruction { min-height: 20px; margin: 19px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 .speech-result { min-height: 0; margin-top: 18px; }
 .speech-listening {
