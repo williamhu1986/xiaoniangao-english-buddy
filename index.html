@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#58cc02">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="英语 Buddy">
+  <meta name="format-detection" content="telephone=no">
+  <title>小年糕的英语 Buddy</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+SC:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#" data-nav="learn" aria-label="小年糕的英语 Buddy">
+        <span class="brand-mascot" aria-hidden="true"><i></i><b></b></span>
+        <span><strong>小年糕</strong><small>ENGLISH BUDDY</small></span>
+      </a>
+      <nav class="side-nav" aria-label="主要导航">
+        <button class="nav-item active" type="button" data-nav="learn"><i data-lucide="house"></i><span>学习</span></button>
+        <button class="nav-item" type="button" data-nav="practice"><i data-lucide="dumbbell"></i><span>练习</span></button>
+        <button class="nav-item" type="button" data-nav="course"><i data-lucide="map"></i><span>课程</span></button>
+        <button class="nav-item" type="button" data-nav="progress"><i data-lucide="chart-no-axes-column-increasing"></i><span>成长</span></button>
+      </nav>
+      <div class="book-note">
+        <i data-lucide="book-open"></i>
+        <span>上海教育出版社<br>《英语口语交际》一年级上册</span>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="top-stats">
+        <button class="book-pill" type="button" data-nav="course">
+          <span>2</span>
+          <strong>UNIT 2</strong>
+          <i data-lucide="chevron-down"></i>
+        </button>
+        <div class="stat-group" aria-label="学习状态">
+          <span class="stat streak"><i data-lucide="flame"></i><b id="streakCount">7</b></span>
+          <span class="stat stars"><i data-lucide="star"></i><b id="starCount">46</b></span>
+          <span class="stat hearts"><i data-lucide="heart"></i><b id="heartCount">5</b></span>
+        </div>
+      </header>
+
+      <main>
+        <section class="page active" data-page="learn">
+          <div class="unit-banner">
+            <div>
+              <span class="unit-kicker">UNIT 2 · 当前学习</span>
+              <h1>How are you today?</h1>
+              <p>学会表达冷、热、渴、饿等感受</p>
+            </div>
+            <button class="guide-button" type="button" data-action="unit-guide">
+              <i data-lucide="notebook-tabs"></i><span>单元指南</span>
+            </button>
+          </div>
+
+          <section class="daily-goal" aria-label="今日目标">
+            <div class="goal-ring" style="--progress: 35"><span><b id="goalDone">7</b>/20</span></div>
+            <div>
+              <span class="eyebrow">今日目标</span>
+              <h2>再完成 13 题</h2>
+              <p>保持连续学习，第 8 天就在眼前</p>
+            </div>
+            <button class="mini-cta" type="button" data-action="daily-practice">继续</button>
+          </section>
+
+          <div class="path-heading">
+            <div>
+              <span class="eyebrow">学习路径</span>
+              <h2>第 2 单元</h2>
+            </div>
+            <span class="path-progress"><b id="unitProgress">1</b>/5 关</span>
+          </div>
+
+          <section class="lesson-path" aria-label="Unit 2 学习路径">
+            <div class="path-rail"></div>
+            <article class="path-stop left complete">
+              <button class="lesson-node" type="button" data-lesson="words" aria-label="复习感受词">
+                <i data-lucide="check"></i>
+              </button>
+              <div class="lesson-label"><span>第 1 关</span><strong>感受词</strong><small>cold · hot · thirsty · hungry</small></div>
+            </article>
+            <article class="path-stop right current">
+              <button class="lesson-node" type="button" data-lesson="story" aria-label="开始农场故事">
+                <i data-lucide="book-open"></i>
+              </button>
+              <div class="lesson-label"><span>第 2 关</span><strong>On the farm</strong><small>听故事，回答身体感受</small></div>
+              <span class="start-flag">开始</span>
+            </article>
+            <article class="path-stop left locked">
+              <button class="lesson-node" type="button" data-lesson="game" aria-label="感受配对游戏">
+                <i data-lucide="gamepad-2"></i>
+              </button>
+              <div class="lesson-label"><span>第 3 关</span><strong>A game</strong><small>问一问，猜一猜</small></div>
+            </article>
+            <article class="path-stop right locked">
+              <button class="lesson-node" type="button" data-lesson="extended" aria-label="龟兔赛跑">
+                <i data-lucide="rabbit"></i>
+              </button>
+              <div class="lesson-label"><span>第 4 关</span><strong>The tortoise and the rabbit</strong><small>拓展故事</small></div>
+            </article>
+            <article class="path-stop left locked">
+              <button class="lesson-node chest" type="button" data-lesson="letters" aria-label="字母 E 到 H">
+                <i data-lucide="gift"></i>
+              </button>
+              <div class="lesson-label"><span>第 5 关</span><strong>Letters E–H</strong><small>elephant · frog · giraffe · hen</small></div>
+            </article>
+          </section>
+        </section>
+
+        <section class="page" data-page="practice">
+          <div class="page-title">
+            <span class="eyebrow">PRACTICE HUB</span>
+            <h1>练习场</h1>
+            <p>围绕已学内容，短时高频复习</p>
+          </div>
+          <div class="practice-grid">
+            <button class="practice-tile listening" type="button" data-action="quick-listen">
+              <span class="tile-icon"><i data-lucide="headphones"></i></span>
+              <span><small>5 题</small><strong>听力冲刺</strong><em>辨别 cold、hot、thirsty、hungry</em></span>
+              <i data-lucide="chevron-right"></i>
+            </button>
+            <button class="practice-tile speaking" type="button" data-action="quick-speak">
+              <span class="tile-icon"><i data-lucide="mic-2"></i></span>
+              <span><small>5 题</small><strong>开口说</strong><em>How are you today?</em></span>
+              <i data-lucide="chevron-right"></i>
+            </button>
+            <button class="practice-tile review" type="button" data-action="daily-practice">
+              <span class="tile-icon"><i data-lucide="rotate-ccw"></i></span>
+              <span><small>20 题</small><strong>每日综合</strong><em>听力、口语、认读混合训练</em></span>
+              <i data-lucide="chevron-right"></i>
+            </button>
+          </div>
+          <section class="challenge-panel">
+            <div class="challenge-medal"><i data-lucide="trophy"></i></div>
+            <div><span class="eyebrow">本月挑战</span><h2>九月口语小达人</h2><p>已完成 286 题，月末从错题和已学内容生成模拟练习。</p></div>
+            <button class="outline-button" type="button" data-action="exam-preview">查看</button>
+          </section>
+        </section>
+
+        <section class="page" data-page="course">
+          <div class="page-title">
+            <span class="eyebrow">COURSE MAP</span>
+            <h1>一年级上册</h1>
+            <p>六个主题，循序渐进完成口语交际</p>
+          </div>
+          <div class="course-list" id="courseList"></div>
+        </section>
+
+        <section class="page" data-page="progress">
+          <div class="page-title">
+            <span class="eyebrow">GROWTH REPORT</span>
+            <h1>小年糕的成长</h1>
+            <p>本周比上周多开口 12 次</p>
+          </div>
+          <section class="score-strip">
+            <div><span>连续学习</span><strong>7<small>天</small></strong></div>
+            <div><span>完成练习</span><strong>286<small>题</small></strong></div>
+            <div><span>平均正确率</span><strong>92<small>%</small></strong></div>
+          </section>
+          <section class="weekly-panel">
+            <div class="panel-heading"><div><span class="eyebrow">本周活跃度</span><h2>每天都在进步</h2></div><strong>86 分钟</strong></div>
+            <div class="week-bars">
+              <div><i style="height:46%"></i><span>一</span></div>
+              <div><i style="height:68%"></i><span>二</span></div>
+              <div><i style="height:52%"></i><span>三</span></div>
+              <div><i style="height:88%"></i><span>四</span></div>
+              <div><i style="height:72%"></i><span>五</span></div>
+              <div><i style="height:34%"></i><span>六</span></div>
+              <div class="today"><i style="height:64%"></i><span>日</span></div>
+            </div>
+          </section>
+          <section class="buddy-tip">
+            <span class="tip-face" aria-hidden="true"><i></i><b></b></span>
+            <div><span class="eyebrow">BUDDY 的发现</span><h2>听力是小年糕的强项</h2><p>下一步多练习完整句型 “I'm thirsty.” 和 “I'm hungry.”。</p></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="移动端导航">
+      <button class="nav-item active" type="button" data-nav="learn"><i data-lucide="house"></i><span>学习</span></button>
+      <button class="nav-item" type="button" data-nav="practice"><i data-lucide="dumbbell"></i><span>练习</span></button>
+      <button class="nav-item" type="button" data-nav="course"><i data-lucide="map"></i><span>课程</span></button>
+      <button class="nav-item" type="button" data-nav="progress"><i data-lucide="chart-no-axes-column-increasing"></i><span>成长</span></button>
+    </nav>
+  </div>
+
+  <dialog id="lessonDialog" class="lesson-dialog">
+    <div class="lesson-shell">
+      <header class="lesson-header">
+        <button class="close-button" type="button" data-action="close-lesson" aria-label="退出练习"><i data-lucide="x"></i></button>
+        <div class="lesson-progress"><i id="lessonProgress"></i></div>
+        <span class="heart-counter"><i data-lucide="heart"></i><b id="lessonHearts">5</b></span>
+      </header>
+      <div class="exercise" id="exercise"></div>
+      <footer class="answer-bar" id="answerBar">
+        <div class="answer-message" id="answerMessage"></div>
+        <button class="check-button" id="checkButton" type="button" data-action="check-answer" disabled>检查</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="guideDialog" class="guide-dialog">
+    <div class="guide-sheet">
+      <button class="close-button" type="button" data-action="close-guide" aria-label="关闭"><i data-lucide="x"></i></button>
+      <span class="eyebrow">UNIT 2 · 单元指南</span>
+      <h2>How are you today?</h2>
+      <div class="guide-row"><span>重点词汇</span><strong>cold · hot · thirsty · hungry</strong></div>
+      <div class="guide-row"><span>核心问答</span><strong>How are you? — I'm ...</strong></div>
+      <div class="guide-row"><span>故事</span><strong>On the farm</strong></div>
+      <div class="guide-row"><span>拓展阅读</span><strong>The tortoise and the rabbit</strong></div>
+      <div class="guide-row"><span>字母</span><strong>Ee · Ff · Gg · Hh</strong></div>
+      <button class="primary-cta" type="button" data-action="start-current">开始第 2 关</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

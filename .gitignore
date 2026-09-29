@@ -1,0 +1,11 @@
+node_modules/
+.tools/
+.DS_Store
+*.log
+serve.runtime.log
+serve.log
+serve.log.err
+cloudflared.exe
+cloudflared.log
+buddy-mobile.png
+buddy-desktop.png
